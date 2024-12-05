@@ -22,7 +22,7 @@ def create_argparser():
     return parser
 
 def parse_filename(ev_string, endwith,filename):
-    a = filename.split(ev_string)
+    a = filename.split(ev_string) # contains substr '-ev'
     name = ev_string.join(a[:-1])
     ev = a[-1].replace(endwith, "")
     ev = int(ev) / 10
