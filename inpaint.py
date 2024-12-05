@@ -273,7 +273,9 @@ def main():
         for ev, (prompt_embeds, pooled_prompt_embeds) in embedding_dict.items():
             # create output file name (we always use png to prevent quality loss)
             ev_str = str(ev).replace(".", "") if ev != 0 else "-00"
-            outname = os.path.basename(image_path).split(".")[0] + f"_ev{ev_str}"
+            #outname = os.path.basename(image_path).split(".")[0] + f"_ev{ev_str}"
+            img_name = os.path.basename(image_path)
+            outname = '.'.join(img_name.split('.')[:-1]) + f"_ev{ev_str}"
 
             # we use top-left corner notation (which is different from aj.aek's center point notation)
             x, y, r = get_ball_location(image_data, args)
