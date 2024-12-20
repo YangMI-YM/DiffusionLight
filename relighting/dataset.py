@@ -130,8 +130,8 @@ class GeneralLoader(Dataset):
         
         if num_samples is not None:
             max_idx = min(num_samples, len(scene_data))
-            scene_data = scene_data[:max_idx]
-        
+            #scene_data = scene_data[:max_idx]
+            scene_data = scene_data[max_idx:]
         return scene_data
     
     @classmethod
