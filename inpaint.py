@@ -66,7 +66,7 @@ def create_argparser():
     parser.set_defaults(offload=False)
     
     parser.add_argument("--limit_input", default=0, type=int, help="limit number of image to process to n image (0 = no limit), useful for run smallset")
-
+    parser.add_argument("--skip_num_samples", default=0, type=int, help="start position of the returned dataloader")
 
     # LoRA stuff
     parser.add_argument('--no_lora', dest='use_lora', action='store_false', help='by default we using lora, we have option to disable to see the different')
@@ -235,6 +235,7 @@ def main():
     # load dataset
     dataset = GeneralLoader(
         root=args.dataset,
+        num_samples=args.skip_num_samples,
         resolution=(args.img_width, args.img_height),
         force_square=args.force_square,
         return_dict=True,
