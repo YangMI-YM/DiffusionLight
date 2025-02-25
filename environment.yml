@@ -1,4 +1,4 @@
-name: diffusionlight
+name: Lighting
 channels:
   - conda-forge
   - defaults

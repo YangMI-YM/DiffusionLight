@@ -60,6 +60,7 @@ def estimate_scene_normal(image, depth_estimator):
 
     # upsizing image depth to match input
     hw = np.array(image).shape[:2]
+    
     normal_image = skimage.transform.resize(normal_image, hw, preserve_range=True)
 
     image_depth = normal_image.copy()
@@ -89,8 +90,10 @@ def estimate_scene_depth(image, depth_estimator):
 
     depth_map = depth_estimator(image)['predicted_depth']
     W, H = image.size
+    #print(f"mismatched i/o dims {image.size} {depth_map.shape} {depth_map.unsqueeze(0).shape}")
     depth_map = torch.nn.functional.interpolate(
-        depth_map.unsqueeze(1),
+        depth_map.unsqueeze(1), # transformer==4.36.0
+        #depth_map.unsqueeze(0).unsqueeze(1), # transformer==4.46.0
         size=(H, W),
         mode="bicubic",
         align_corners=False,

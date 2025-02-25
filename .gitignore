@@ -1,3 +1,13 @@
+*.pyc
+__pycache__/
+
 output/
 temp_inpaint_iterative/
-*.pyc
+openexr/
+openexrpython/
+example/
+
+freeze.txt
+freeze_xformer_supported.txt
+*.sh
+inpaint_threads.py

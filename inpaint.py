@@ -32,6 +32,8 @@ from relighting.argument import (
     VAE_MODELS
 )
 
+### USAGE: python inpaint.py --dataset $CROPPED  --output $LIGHT --ev 
+
 def create_argparser():    
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, required=True ,help='directory that contain the image') #dataset name or directory 
@@ -60,7 +62,7 @@ def create_argparser():
     parser.set_defaults(random_loader=True)
 
     parser.add_argument('--cpu', dest='is_cpu', action='store_true', help="using CPU inference instead of GPU inference")
-    parser.set_defaults(is_cpu=False)
+    parser.set_defaults(is_cpu=False) #
 
     parser.add_argument('--offload', dest='offload', action='store_false', help="to enable diffusers cpu offload")
     parser.set_defaults(offload=False)
@@ -80,7 +82,7 @@ def create_argparser():
     parser.set_defaults(use_torch_compile=True)
     
     # algorithm + iterative stuff
-    parser.add_argument("--algorithm", type=str, default="iterative", choices=["iterative", "normal"], help="Selecting between iterative or normal (single pass inpaint) algorithm")
+    parser.add_argument("--algorithm", type=str, default="normal", choices=["iterative", "normal"], help="Selecting between iterative or normal (single pass inpaint) algorithm")
 
     parser.add_argument("--agg_mode", default="median", type=str)
     parser.add_argument("--strength", default=0.8, type=float)
@@ -222,7 +224,8 @@ def main():
         try:
             print("compiling unet model")
             start_time = time.time()
-            pipe.pipeline.unet = torch.compile(pipe.pipeline.unet, mode="reduce-overhead", fullgraph=True)
+            #pipe.pipeline.unet = torch.compile(pipe.pipeline.unet.to(device), mode="reduce-overhead", fullgraph=True)
+            pipe.pipeline.unet = torch.compile(pipe.pipeline.unet.to(device))
             print("Model compilation time: ", time.time() - start_time)
         except:
             pass
@@ -270,7 +273,7 @@ def main():
     for image_data in tqdm(dataset):
         input_image = image_data["image"] 
         image_path = image_data["path"]
-        
+        #print(f"input image inspect {input_image.size}.")
         for ev, (prompt_embeds, pooled_prompt_embeds) in embedding_dict.items():
             # create output file name (we always use png to prevent quality loss)
             ev_str = str(ev).replace(".", "") if ev != 0 else "-00"
@@ -333,7 +336,9 @@ def main():
                     kwargs["cross_attention_kwargs"] = {"scale": args.lora_scale}
                 
                 if args.algorithm == "normal":
+                    #inpaint_start_time = time.time()
                     output_image = pipe.inpaint(**kwargs).images[0]
+                    #print(f"Inpaint compilation time: {time.time()-inpaint_start_time}.")
                 elif args.algorithm == "iterative":
                     # This is still buggy
                     print("using inpainting iterative, this is going to take a while...")
@@ -351,7 +356,7 @@ def main():
                 
                 
                 square_image = output_image.crop((x, y, x+r, y+r))
-
+                #io_start_time = time.time()
                 # return the most recent control_image for sanity check
                 control_image = pipe.get_cache_control_image()
                 if control_image is not None:
@@ -360,7 +365,7 @@ def main():
                 # save image 
                 output_image.save(os.path.join(raw_output_dir, outpng))
                 square_image.save(os.path.join(square_output_dir, outpng))
-
-                          
+                #print(f"files writing completed in {time.time()-io_start_time}.")
+          
 if __name__ == "__main__":
     main()

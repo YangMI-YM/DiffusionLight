@@ -43,7 +43,7 @@ class Dataset(ABC):
             image = pil_square_image(image, self.resolution)
         else:
             image = image.resize(self.resolution)
-        
+
         if self.return_dict:
             d = {
                 "image": image,
@@ -82,7 +82,8 @@ class GeneralLoader(Dataset):
             
             paths = natsorted(
                 list(glob.glob(os.path.join(self.root, "*.png"))) + \
-                list(glob.glob(os.path.join(self.root, "*.jpg")))
+                list(glob.glob(os.path.join(self.root, "*.jpg"))) + \
+                list(glob.glob(os.path.join(self.root, "*.jpeg")))
             )
             self.scene_data = self._load_data_path(paths, num_samples=num_samples)
             

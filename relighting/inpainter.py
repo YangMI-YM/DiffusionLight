@@ -46,7 +46,7 @@ class ControlSignalGenerator():
     def process_sdxl_depth(self, input_image, normal_ball=None, mask_ball=None, x=None, y=None, r=None):
         if getattr(self, 'depth_estimator', None) is None:
             self.depth_estimator = transformers_pipeline("depth-estimation", model=DEPTH_ESTIMATOR, device=self.device.index)
-
+        
         control_image = estimate_scene_depth(input_image, depth_estimator=self.depth_estimator)
         xs = [x] if not isinstance(x, list) else x
         ys = [y] if not isinstance(y, list) else y
