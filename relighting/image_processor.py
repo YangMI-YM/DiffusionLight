@@ -7,6 +7,7 @@ try:
 except:
     pass
 
+
 def fill_image(image, mask_ball, x, y, size, color=(255,255,255)):
     if isinstance(image, Image.Image):
         result = np.array(image)
@@ -19,6 +20,7 @@ def fill_image(image, mask_ball, x, y, size, color=(255,255,255)):
         result = Image.fromarray(result)
 
     return result
+
 
 def pil_square_image(image, desired_size = (512,512), interpolation=Image.LANCZOS):
     """
@@ -83,6 +85,7 @@ def estimate_scene_normal(image, depth_estimator):
     # rescale back to image size
     return normal_image
 
+
 def estimate_scene_depth(image, depth_estimator):
     #image = feature_extractor(images=image, return_tensors="pt").pixel_values.to("cuda")
     #with torch.no_grad(), torch.autocast("cuda"):
@@ -107,6 +110,7 @@ def estimate_scene_depth(image, depth_estimator):
     image = Image.fromarray((image * 255.0).clip(0, 255).astype(np.uint8))
     return image
 
+
 def fill_depth_circular(depth_image, x, y, r):
     depth_image = np.array(depth_image)
 
@@ -121,7 +125,7 @@ def fill_depth_circular(depth_image, x, y, r):
     
     depth_image = Image.fromarray(depth_image)
     return depth_image
-    
+
 
 def merge_normal_map(normal_map, normal_ball,  mask_ball, x, y):
     """

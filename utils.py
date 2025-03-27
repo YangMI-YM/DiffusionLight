@@ -4,7 +4,6 @@ import os
 from scipy.special import sph_harm
 import cv2
 from PIL import Image
-import pillow_avif # handling avif format image
 import torch
 import numpy as np
 import skimage
@@ -13,7 +12,7 @@ from scipy.special import legendre, eval_legendre, lpmn, factorial
 import scipy.constants as const
 from skimage import data, exposure, img_as_float
 from operator import itemgetter
-from math import atan2
+from math import atan2, pi
 
 
 # create chromeball preview
@@ -49,9 +48,11 @@ def vconcat_resize_min(im_list, interpolation=cv2.INTER_LANCZOS4):
 
 
 def hconcat_resize_min(im_list, interpolation=cv2.INTER_LANCZOS4):
-    h_min = max(im.shape[0] for im in im_list)
+    h_min = min(im.shape[0] for im in im_list)
     im_list_resize = [cv2.resize(im, (int(im.shape[1] * h_min / im.shape[0]), h_min), interpolation=interpolation)
                       for im in im_list]
+    im_list_resize = [np.stack([im, im, im], axis=-1) if len(im.shape)==2 else im for im in im_list_resize]
+    
     return cv2.hconcat(im_list_resize)
 
 
@@ -145,7 +146,7 @@ def transform2Dpos2Spherical3D(pixel_pos, dim=256, light_type='point'):
         Step 1: (x_p, y_p) pixel coordinate -> (theta, phi) spherical coordinates
         Step 2: (theta, phi) -> (x, y, z) world coordinate
     '''
-    print(f"points in (x, Y) coordinate {pixel_pos}.")
+    #print(f"points in (x, Y) coordinate {pixel_pos}.")
 
     world_pos = []
     if len(pixel_pos) == 0:
@@ -167,7 +168,7 @@ def transform2Dpos2Spherical3D(pixel_pos, dim=256, light_type='point'):
         #phi = - (pos[1] / (dim / 180) - 90)
         phi = 90 # polar angle is always 90 for a flat circle in xy-plane
 
-        print(f"theta_phi range {np.rad2deg(theta)} \in [0, \pi].")
+        #print(f"theta_phi range {np.rad2deg(theta)} \in [0, \pi].")
 
         phi = np.deg2rad(phi)
         x = radius * np.sin(phi) * np.cos(theta)
@@ -518,3 +519,33 @@ def create_inverse_gaussian_light_mask(image_size, center, radius=50, sigma=30):
     inverse_gaussian_mask = np.clip(inverse_gaussian_mask * 255, 0, 255).astype(np.uint8)
 
     return inverse_gaussian_mask
+
+
+def angle_from_centroid(points, centroid=(128, 128)):
+    ang_deg = []
+    for point in points:
+        x, y = point
+        cx, cy = centroid
+        ang_deg.append(atan2(y - cy, x - cx))
+    
+    ang_ind = sorted(range(len(ang_deg)), key=lambda i: ang_deg[i], reverse=False)
+    #print("angle ccw in range[-\pi, \pi]", ang_ind, ang_deg)
+    return ang_ind, np.array(ang_deg)
+
+
+def group_by_angle(pts, strength):
+    valid_pts = []
+    ang_ind, ang_deg = angle_from_centroid(pts)
+    for ang in range(-2, 2):
+        ind = np.where((ang_deg>=ang*pi/2) & (ang_deg<=(ang+1)*pi/2))[0]
+        if ind.size > 1: 
+            pts_quadrant = np.take(pts, ind, axis=0) # percentile 
+            strength_quadrant = np.take(strength, ind)
+            #print(f"indexing: {pts_quadrant}, {pts}, {ind}, {strength_quadrant}")
+            pt = pts_quadrant[np.argmax(strength_quadrant)]
+            valid_pts.append(pt)
+        elif ind.size == 1:
+            #print(f"indexing: {pts[ind[0]]}")
+            valid_pts.append(pts[ind[0]])
+    
+    return valid_pts

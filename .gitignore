@@ -10,4 +10,5 @@ example/
 freeze.txt
 freeze_xformer_supported.txt
 *.sh
+!light_probes_pred_end2end.sh
 inpaint_threads.py

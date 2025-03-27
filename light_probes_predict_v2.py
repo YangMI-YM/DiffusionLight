@@ -1,12 +1,13 @@
 from glob import glob
 import os
+import argparse
 import shutil
 from scipy.special import sph_harm
 import cv2
-from PIL import Image
-import pillow_avif # handling avif format image
+from PIL import Image, PngImagePlugin
 import torch
 import numpy as np
+import json
 import skimage
 from tqdm import tqdm
 from scipy.special import legendre, eval_legendre, lpmn, factorial
@@ -14,8 +15,15 @@ import scipy.constants as const
 from skimage import data, exposure, img_as_float
 from operator import itemgetter
 from math import atan2
+import time
 
 from utils import *
+
+
+def create_argparser():    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_dir", type=str, required=True ,help='directory that contain the chromeball image') 
+    return parser
 
 
 def hemi_sphere_light_src(sphere_src, val_dist=50, ball_dilate=10, mean_thres=140, thres_dist=6.0):
@@ -113,7 +121,7 @@ def hemi_sphere_light_src(sphere_src, val_dist=50, ball_dilate=10, mean_thres=14
     is_symmetric = if_symmetric(tmp)
     print(is_symmetric)
 
-    # secure point light source (sorted by y) # who needs ace
+    # secure point light source (sorted by y) 
     valid_light_src = 0
     _, max_temperature, _, max_loc = cv2.minMaxLoc(cv2.bitwise_and(pts_illu, pts_illu, mask=tmp))
     if max_loc[1] > 128:
@@ -396,7 +404,7 @@ def avg_hemi_sphere_light_src(sphere_src, vis_dir, val_dist=50, ball_dilate=10, 
 
     # cluster closed contours
     (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(pts_illu)
-    print("max value after blending", maxVal)
+    #print("max value after blending", maxVal)
 
     while maxVal - minVal < val_dist:
         val_dist = val_dist // 2
@@ -404,7 +412,7 @@ def avg_hemi_sphere_light_src(sphere_src, vis_dir, val_dist=50, ball_dilate=10, 
     illu_cnts, _ = cv2.findContours(illu_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
 
     clustered_contours, ring_contours = agglomerative_cluster(list(illu_cnts), threshold_distance=thres_dist*2) # 8.0
-    print("num of cnts", len(illu_cnts), len(clustered_contours))
+    print("num of clustered light spots", len(illu_cnts), len(clustered_contours))
     if len(clustered_contours) == 0: # 2nd chance to find light spots
         # use ev-50 instead 
         spb5 = Image.open(sphere_src)
@@ -421,7 +429,7 @@ def avg_hemi_sphere_light_src(sphere_src, vis_dir, val_dist=50, ball_dilate=10, 
         clustered_contours, ring_contours = agglomerative_cluster(list(illu_cnts), threshold_distance=thres_dist)
     if len(clustered_contours) == 0:
         # expand search range of light TBC
-        print(f"No light detected {sphere_src}")
+        print(f"No light detected {sphere_src}")    
 
     tmp = np.zeros(pts_illu.shape, dtype=np.uint8)
     for cnt in clustered_contours:
@@ -461,6 +469,10 @@ def avg_hemi_sphere_light_src(sphere_src, vis_dir, val_dist=50, ball_dilate=10, 
             valid_light_src += 1
             cv2.circle(pts_illu, cntr, 5, (0, 255, 0), -1)
             point_light.append(cntr)
+    else:
+        # centroid light spot
+        cntr = (int((pts_illu.shape[0]//2)), int((pts_illu.shape[1]//2)))
+        point_light.append(cntr)
         
         #print(os.path.join(vis_dir, os.path.basename(sphere_src).split('_ev-')[0]+'.png'))
         #cv2.imwrite(os.path.join(vis_dir, os.path.basename(sphere_src).split('_ev-')[0]+'.png'), pts_illu)
@@ -507,6 +519,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
     mean_thres: predefined light source threshold, if maxVal less than the thres then increase the ev value
     returns (point_light, directional_light)
     '''
+    light_temperature = []
     point_light = []
     directional_light = []
     bound_enh = 2
@@ -516,7 +529,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
     spb = []
     ev_list = []
     ## light source in chrome balls
-    ball_list = glob(sphere_src.split('_ev-')[0] + '_ev-*')
+    ball_list = [sphere_src, sphere_src.replace('_ev-50', '_ev-25'), sphere_src.replace('_ev-50', '_ev-00')] #glob(sphere_src.split('_ev-')[0] + '_ev-*') + \
 
     for sphere_ball in ball_list:
         _ev = sphere_ball.split('_ev-')[-1].split('.')[0]
@@ -531,6 +544,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         ev_list.append(2-float(_ev)/50) # [1.9, 0.1, 1]
 
     illu = equal_blend(spb, ev_list)
+    
 
     # Step 1: Gaussian blurring
     illu = cv2.GaussianBlur(illu, (5, 5), 0)
@@ -562,7 +576,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
     clustered_contours = bright_areas
     if len(clustered_contours) == 0: # 2nd chance to find light spots
         # use ev-50 instead 
-        spb5 = Image.open(sphere_src)
+        spb5 = Image.open(sphere_src.replace('ev-50', 'ev-25')) # replace('ev-50', 'ev-00')
         spb5 = np.asarray(spb5)
         #print("***", spb5.shape)
         illu = cv2.cvtColor(spb5, cv2.COLOR_BGR2GRAY)
@@ -578,12 +592,15 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         # expand search range of light TBC
         print(f"No light detected {sphere_src}")
 
-    print("bright area", clustered_contours)
     # secure point light source (sorted by y) # who needs ace
     tmp = np.zeros(pts_illu.shape, dtype=np.uint8)
-    for cnt in clustered_contours:
-        #cv2.drawContours(tmp, [cnt], -1, 255, -1)
-        cv2.rectangle(tmp, (cnt[0], cnt[1]), (cnt[0]+cnt[2], cnt[1]+cnt[3]), 255, -1)
+    for i, cnt in enumerate(clustered_contours):
+        #print(cnt, bright_areas)
+        if len(cnt) == 4:
+            cv2.rectangle(tmp, (cnt[0], cnt[1]), (cnt[0]+cnt[2], cnt[1]+cnt[3]), 255, -1)
+        else:
+            cv2.drawContours(tmp, [cnt], -1, 255, -1)
+            clustered_contours[i] = cv2.boundingRect(cnt)
     valid_light_src = 0
     _, max_temperature, _, max_loc = cv2.minMaxLoc(cv2.bitwise_and(pts_illu, pts_illu, mask=tmp))
 
@@ -591,12 +608,13 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         top_hemi = False
     else:
         top_hemi = True
-    print(f"max temp & loc: {max_temperature} {max_loc}")
+    #print(f"max temp & loc: {max_temperature} {max_loc}")
     
     if len(clustered_contours) > 0:
-        #clustered_contours = sorted(clustered_contours, key=lambda ctr: cv2.boundingRect(ctr)[1])
+        # sorted as top-down
         clustered_contours = sorted(clustered_contours, key=lambda ctr: ctr[0] + ctr[1] * ctr[2] )  # logic: x+y*w
         for cnt in clustered_contours:
+            #print(cnt)
             center = (cnt[0]+cnt[2]//2, cnt[1]+cnt[3]//2)
             tmp_mask = np.zeros(pts_illu.shape, dtype=np.uint8)
             cv2.rectangle(tmp_mask, (cnt[0], cnt[1]), (cnt[0]+cnt[2], cnt[1]+cnt[3]), 255, -1)
@@ -605,7 +623,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
             # mean val within contour area / #TODO 
             mean_circle_cntr = np.mean(pts_illu[center[1]-5:center[1]+5, center[0]-5:center[0]+5])
             mean_maxval = np.mean(pts_illu[highlight_loc[1]-5:highlight_loc[1]+5, highlight_loc[0]-5:highlight_loc[0]+5])
-            print(center, mean_circle_cntr, highlight, highlight_loc, mean_maxval)
+            #print(center, mean_circle_cntr, highlight, highlight_loc, mean_maxval)
             cntr = (int(center[0]), int(center[1])) if mean_circle_cntr > mean_maxval-10 else highlight_loc
             if min(cntr[1], highlight_loc[1]) > max_loc[1] > 128 or max_temperature-highlight > 20:
                 continue
@@ -613,7 +631,14 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
                 continue
             valid_light_src += 1
             cv2.circle(pts_illu, cntr, 5, (0, 255, 0), -1)
+            light_temperature.append(mean_maxval)
             point_light.append(cntr)
+            #if valid_light_src > 2: # sub-opt
+            #    point_light = sorted(point_light, reverse=True, key=lambda i: light_temperature)[:2] 
+    else:
+        # centroid light spot
+        cntr = (int((pts_illu.shape[0]//2)), int((pts_illu.shape[1]//2)))
+        point_light.append(cntr)
 
     # secure directional light source
     if len(clustered_contours) == 0 and len(ring_contours) > 0:
@@ -629,52 +654,74 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
             cv2.circle(pts_illu, ring_center, 5, (0, 0, 255), 3)
             
         directional_light.append(ring_center)
-
+    save_start = time.time()
     # transform pixel-based light position to world geometry coordinate (x, y) ONLY
-    if len(point_light) > 0:
+    if len(point_light) > 1:
+        # group by deg
+        pts_gp = group_by_angle(point_light, light_temperature)
+        # access source image 
+        img_id = os.path.basename(sphere_src).split('_ev-')[0]
+        src_dir = os.path.dirname(os.path.dirname(sphere_src)).replace('light', 'cropped')
+        src_img = cv2.imread(glob(os.path.join(src_dir, img_id+'.*'))[0])
+    
+        world_light = transform2Dpos2Spherical3D(pts_gp)
+        metadata = PngImagePlugin.PngInfo()
+        metadata.add_text('light', json.dumps(world_light))
+        #print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
+        # world light mask
+        light_mask = create_light_mask(pts_gp, (256, 256))
+        # cvrt to Image format
+        Image.fromarray(light_mask).save(os.path.join(vis_dir, img_id+'.png'), pnginfo=metadata)
+        # tile spb & light mask
+        
+        tile = hconcat_resize_min([src_img, illu, light_mask]) # TODO pts_illu
+        cv2.imwrite(os.path.join(vis_dir, 'vis', img_id+'_tile.png'), tile)
+        
+    elif len(point_light) > 0:
+        # access source image 
+        img_id = os.path.basename(sphere_src).split('_ev-')[0]
+        src_dir = os.path.dirname(os.path.dirname(sphere_src)).replace('light', 'cropped')
+        src_img = cv2.imread(glob(os.path.join(src_dir, img_id+'.*'))[0])
+        
         world_light = transform2Dpos2Spherical3D(point_light)
+        metadata = PngImagePlugin.PngInfo()
+        metadata.add_text('light', json.dumps(world_light))
         print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
         # world light mask
         light_mask = create_light_mask(point_light, (256, 256))
+        # cvrt to Image format
+        Image.fromarray(light_mask).save(os.path.join(vis_dir, img_id+'.png'), pnginfo=metadata)
         # tile spb & light mask
-        tile = hconcat_resize_min([pts_illu, light_mask])
-        cv2.imwrite(os.path.join(vis_dir, os.path.basename(sphere_src).split('_ev-')[0]+'_tile.png'), tile)
+        
+        tile = hconcat_resize_min([src_img, illu, pts_illu, light_mask]) 
+        cv2.imwrite(os.path.join(vis_dir, 'vis', img_id+'_tile.png'), tile)
     else: # TODO remove samples without light spots
         light_mask = create_inverse_gaussian_light_mask(center=(128, 128), image_size=(256, 256)) # dark center 
         tile = hconcat_resize_min([pts_illu, light_mask])
         cv2.imwrite(os.path.join(vis_dir, os.path.basename(sphere_src).split('_ev-')[0]+'_tile.png'), tile)
-
-    #return clustered_contours, ring_contours
+    print(f"fw complete: {time.time()-save_start}.")
 
 
 if __name__ == "__main__":
 
-    search_dir = '/home/yangmi/s3data/light_probs/ball_minitestset' # keep depth shallow
-    vis_dir = '/home/yangmi/s3data/light_probs/minitestset_output'
+    args = create_argparser().parse_args()
+    search_dir = args.input_dir
+    vis_dir = search_dir.replace('ball', 'light_mask')
+    #search_dir = '/home/ec2-user/s3data/light_probs/ball_minitestset' # keep depth shallow
+    #vis_dir = '/home/ec2-user/s3data/light_probs/minitestset_output'
     os.makedirs(vis_dir, exist_ok=True)
-    symlink = './output'
-    image_filename_list = glob(search_dir+'/*-50.*')#[:100]
+    os.makedirs(os.path.join(vis_dir, 'vis'), exist_ok=True)
+    
+    image_filename_list = glob(search_dir+'/*_ev-50.png')[747:]#[5323:]
     images_path = [os.path.join(search_dir, file_path) for file_path in image_filename_list]
     ball_dilate = 10 # used in inpaint step to make a sharper ball edge
     val_dist = 45 # thresholding light mask
     print(len(images_path))
 
-    # If it's a directory, don't overwrite
-    if os.path.isdir(symlink):
-        print(f"'{symlink}' is a directory, skipping symlink creation.")
-    else:
-        # Remove the existing symlink/file if it's not a directory
-        if os.path.exists(symlink):
-            os.remove(symlink)  # or os.unlink(link_dir) for symlinks
-        os.symlink(vis_dir, symlink)
-        print(f"Symbolic link created from '{vis_dir}' to '{symlink}'.")
-
     for item in tqdm(images_path):
 
         img_name = item.split('/')[-1]
-        #if 'da8452138170951.6217e424c2cef' not in img_name: 
-        #if 'daa773171583341.6470d2059080d' not in img_name:
-        #    continue
+
         ## DC component from SH coeff
         print(img_name)
         try:
@@ -687,7 +734,7 @@ if __name__ == "__main__":
                 continue
         hdr_evm = np.asarray(hdr_evm)
         sh_coeff, sh_hdr = getSH(hdr_evm, l=3) #l_max=3
-        print(f"SH coeff light intensity: {sh_coeff[0][0]}, sh_hdr cutoff {np.max(sh_hdr)} ")
+        #print(f"SH coeff light intensity: {sh_coeff[0][0]}, sh_hdr cutoff {np.max(sh_hdr)} ")
 
         #pt_light, dir_light = avg_hemi_sphere_light_src(item, vis_dir, val_dist, ball_dilate, mean_thres=150)
         avg_sphere_bright(item, vis_dir, val_dist, ball_dilate, mean_thres=150)

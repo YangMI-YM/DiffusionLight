@@ -1,3 +1,25 @@
+# Lighting Modality
+
+To estimate lighting in a single-view image, we use DiffusionLight to inpaint a chrome ball in the center of input images (assuming that all of the input images are HDR that truly present the direction(s) of incoming light).  
+
+
+A chrome ball has a shiny surface that reflects light, so it acts like a mirror. When a person looks at the ball, they can observe the reflections of their surroundings on its surface. Bright spots or highlights on a chrome ball are the areas where light source hits the ball directly. While, the side of the ball opposite the light source will appear darker or shadowed. Therefore, we are able to infer the direction of light by analyzing the position of reflections and shadows. 
+
+
+In terms of describing the relative position of the light source and predicted chrome ball (not the viewer), we opt to use spherical coordinate system that consists of 
+  - Radius: The distance from the center of the sphere (in this case, it would be the radius of the ball).
+  - Theta: The azimuthal angle around the vertical axis (in this case, the range is adjusted to [-180°, 180°], representing the xy-plane).
+  - Phi: The polar angle from the top (from 0° to 180°, in this case, it is limited to 90° as we are only looking for a 2D solution).
+
+
+The projection, pixel coordinate -> spherical coordinate -> cartesian coordinate, is built. Simply implement with below command and the final light masks (256x256) should appear under subdirectory  `light_masks`.
+
+```
+bash light_probes_pred_end2end.sh $INPUT_DIR $OUTPUT_DIR $GPU_ID
+```
+
+
+
 # DiffusionLight: Light Probes for Free by Painting a Chrome Ball
 
 ### [Project Page](https://diffusionlight.github.io/) | [Paper](https://arxiv.org/abs/2312.09168) | [Colab](https://colab.research.google.com/drive/15pC4qb9mEtRYsW3utXkk-jnaeVxUy-0S?usp=sharing&sandboxMode=true) | [HuggingFace](https://huggingface.co/DiffusionLight/DiffusionLight)
