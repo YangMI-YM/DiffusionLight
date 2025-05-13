@@ -6,6 +6,7 @@ temp_inpaint_iterative/
 openexr/
 openexrpython/
 example/
+light_task1/
 
 freeze.txt
 freeze_xformer_supported.txt
