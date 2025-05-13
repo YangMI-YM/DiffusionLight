@@ -661,13 +661,14 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         pts_gp = group_by_angle(point_light, light_temperature)
         # access source image 
         img_id = os.path.basename(sphere_src).split('_ev-')[0]
+        #print("src", os.path.dirname(sphere_src))
         src_dir = os.path.dirname(os.path.dirname(sphere_src)).replace('light', 'cropped')
         src_img = cv2.imread(glob(os.path.join(src_dir, img_id+'.*'))[0])
     
         world_light = transform2Dpos2Spherical3D(pts_gp)
         metadata = PngImagePlugin.PngInfo()
         metadata.add_text('light', json.dumps(world_light))
-        #print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
+        print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
         # world light mask
         light_mask = create_light_mask(pts_gp, (256, 256))
         # cvrt to Image format
@@ -684,7 +685,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         src_img = cv2.imread(glob(os.path.join(src_dir, img_id+'.*'))[0])
         
         world_light = transform2Dpos2Spherical3D(point_light)
-        metadata = PngImagePlugin.PngInfo()
+        metadata = PngImagePlugin.PngInfo() #img.info['light']
         metadata.add_text('light', json.dumps(world_light))
         print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
         # world light mask
@@ -695,6 +696,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         
         tile = hconcat_resize_min([src_img, illu, pts_illu, light_mask]) 
         cv2.imwrite(os.path.join(vis_dir, 'vis', img_id+'_tile.png'), tile)
+    
     else: # TODO remove samples without light spots
         light_mask = create_inverse_gaussian_light_mask(center=(128, 128), image_size=(256, 256)) # dark center 
         tile = hconcat_resize_min([pts_illu, light_mask])
@@ -712,7 +714,7 @@ if __name__ == "__main__":
     os.makedirs(vis_dir, exist_ok=True)
     os.makedirs(os.path.join(vis_dir, 'vis'), exist_ok=True)
     
-    image_filename_list = glob(search_dir+'/*_ev-50.png')[747:]#[5323:]
+    image_filename_list = glob(search_dir+'/*_ev-50.png')#[5323:]
     images_path = [os.path.join(search_dir, file_path) for file_path in image_filename_list]
     ball_dilate = 10 # used in inpaint step to make a sharper ball edge
     val_dist = 45 # thresholding light mask

@@ -168,7 +168,7 @@ def transform2Dpos2Spherical3D(pixel_pos, dim=256, light_type='point'):
         #phi = - (pos[1] / (dim / 180) - 90)
         phi = 90 # polar angle is always 90 for a flat circle in xy-plane
 
-        #print(f"theta_phi range {np.rad2deg(theta)} \in [0, \pi].")
+        print(f"theta_phi range {np.rad2deg(theta)} \in [0, \pi].")
 
         phi = np.deg2rad(phi)
         x = radius * np.sin(phi) * np.cos(theta)

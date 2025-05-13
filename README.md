@@ -19,6 +19,25 @@ bash light_probes_pred_end2end.sh $INPUT_DIR $OUTPUT_DIR $GPU_ID
 ```
 
 
+# Generate your own light masks
+
+
+🔥 Feature	| Behavior
+Grid | Use of a 4x4 grid to round mouse to nearest cell 
+🖱 Mouse Click	| Adds a highlight at grid cell (snapped to top-left)
+🟠 Same Cell Twice	| Increases blur to 1.2×
+🔢 Max Highlights	| 2 allowed
+❓ On 2nd Click	| Prompt: Export or Redo
+↩️ Press Enter	| Export if 0 or 1 highlight
+📸 Export	| Black canvas + white blurry highlights (*ctx.shadowBlur* for approximates Guassian), NO grid
+🧠 Metadata	| Encoded in filename: (x, y, $\theta$) for each highlight
+
+where the angle ($\theta$) denotes the angle between the center of the canvas and the center of each highlight using basic trigonometry:
+
+  $\theta = atan2 (y_{light spot} - y_{center}, x_{light spot} - x_{center})$
+
+The angle is converted to degrees from radians when exporting to metadata.
+
 
 # DiffusionLight: Light Probes for Free by Painting a Chrome Ball
 
