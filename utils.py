@@ -470,7 +470,7 @@ def getSH(em_img, grayscale=True, l=2, basisType=True):
     return sh_coeff, sh_img
 
 
-def create_light_mask(gaussian_centers, canva_size, kernel_size=0, radius=30, sigma=10):
+def create_light_mask(gaussian_centers, intensity, canva_size, kernel_size=0, radius=30, sigma=10):
     '''
     Returns: a gaussian light mask image with smooth transition
     '''
@@ -478,10 +478,11 @@ def create_light_mask(gaussian_centers, canva_size, kernel_size=0, radius=30, si
     summed_blur = np.zeros_like(canva, dtype=np.float32)
     for cntr in gaussian_centers:
         # apply multiple Gaussian_blurs and sum the results
-        light_mask = cv2.circle(canva.copy(), cntr, radius, (1,), thickness=-1)
+        print(cntr)
+        light_mask = cv2.circle(canva.copy(), (int(cntr[0]), int(cntr[1])), radius, (1,), thickness=-1)
         light_mask = cv2.GaussianBlur(light_mask, (kernel_size, kernel_size), sigma).astype(np.float32)
         #light_mask = np.clip(light_mask * 255, 0, 255).astype(np.uint8)
-        summed_blur += light_mask * 255
+        summed_blur += light_mask * 255 * np.mean(intensity)
     
     # normalize summed light spots
     light_mask = np.clip(summed_blur, 0, 255).astype(np.uint8)

@@ -7,10 +7,14 @@ openexr/
 openexrpython/
 example/
 light_task1/
+light_task2/
+light_task2_output/
+models/
 test_inpaint/
 
 freeze.txt
 freeze_xformer_supported.txt
 *.sh
 !light_probes_pred_end2end.sh
+!light_probes_pred.sh
 inpaint_threads.py

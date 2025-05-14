@@ -511,7 +511,7 @@ def avg_hemi_sphere_light_src(sphere_src, vis_dir, val_dist=50, ball_dilate=10, 
     return clustered_contours, ring_contours
 
 
-def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thres=140, thres_dist=6.0):
+def avg_sphere_bright(sphere_src, vis_dir, brightness, val_dist=50, ball_dilate=10, mean_thres=140, thres_dist=6.0):
     '''
     sphere_src: path to chrome ball
     val_dist: for light mask pending
@@ -670,12 +670,12 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         metadata.add_text('light', json.dumps(world_light))
         print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
         # world light mask
-        light_mask = create_light_mask(pts_gp, (256, 256))
+        light_mask = create_light_mask(world_light, brightness[img_id], (256, 256))
         # cvrt to Image format
         Image.fromarray(light_mask).save(os.path.join(vis_dir, img_id+'.png'), pnginfo=metadata)
         # tile spb & light mask
         
-        tile = hconcat_resize_min([src_img, illu, light_mask]) # TODO pts_illu
+        tile = hconcat_resize_min([src_img, illu, light_mask]) # pts_illu
         cv2.imwrite(os.path.join(vis_dir, 'vis', img_id+'_tile.png'), tile)
         
     elif len(point_light) > 0:
@@ -689,7 +689,7 @@ def avg_sphere_bright(sphere_src, vis_dir, val_dist=50, ball_dilate=10, mean_thr
         metadata.add_text('light', json.dumps(world_light))
         print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
         # world light mask
-        light_mask = create_light_mask(point_light, (256, 256))
+        light_mask = create_light_mask(world_light, brightness[img_id], (256, 256))
         # cvrt to Image format
         Image.fromarray(light_mask).save(os.path.join(vis_dir, img_id+'.png'), pnginfo=metadata)
         # tile spb & light mask
@@ -708,7 +708,7 @@ if __name__ == "__main__":
 
     args = create_argparser().parse_args()
     search_dir = args.input_dir
-    vis_dir = search_dir.replace('ball', 'light_mask')
+    vis_dir = search_dir.replace('ball', 'light_mask_intensity')
     #search_dir = '/home/ec2-user/s3data/light_probs/ball_minitestset' # keep depth shallow
     #vis_dir = '/home/ec2-user/s3data/light_probs/minitestset_output'
     os.makedirs(vis_dir, exist_ok=True)
@@ -721,7 +721,7 @@ if __name__ == "__main__":
     print(len(images_path))
 
     for item in tqdm(images_path):
-
+        '''
         img_name = item.split('/')[-1]
 
         ## DC component from SH coeff
@@ -736,7 +736,10 @@ if __name__ == "__main__":
                 continue
         hdr_evm = np.asarray(hdr_evm)
         sh_coeff, sh_hdr = getSH(hdr_evm, l=3) #l_max=3
-        #print(f"SH coeff light intensity: {sh_coeff[0][0]}, sh_hdr cutoff {np.max(sh_hdr)} ")
-
+        print(f"SH coeff light intensity: {sh_coeff[0][0]}, sh_hdr cutoff {np.max(sh_hdr)} ")
+        '''
+        with open(os.path.join(search_dir.replace('ball', 'brightness'), 'brightness.json'), 'r') as brightness_data:
+            brightness = json.load(brightness_data)
+        
         #pt_light, dir_light = avg_hemi_sphere_light_src(item, vis_dir, val_dist, ball_dilate, mean_thres=150)
-        avg_sphere_bright(item, vis_dir, val_dist, ball_dilate, mean_thres=150)
+        avg_sphere_bright(item, vis_dir, brightness, val_dist, ball_dilate, mean_thres=150)
