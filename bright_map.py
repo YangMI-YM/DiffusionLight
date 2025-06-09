@@ -5,6 +5,10 @@ import cv2
 import matplotlib.pyplot as plt
 import imageio.v3 as iio
 from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
+from PIL import PngImagePlugin
+LARGE_ENOUGH_NUMBER = 100
+PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2) # this works
 from skimage import data, exposure
 from skimage.color import rgb2lab, lab2rgb
 from skimage.restoration import estimate_sigma
@@ -169,6 +173,7 @@ if __name__ == "__main__":
     resolution, batch_name = input_dir.split("/")[-3:-1]
     
     output_dir = os.path.join(args.output_dir, resolution, batch_name, "brightness")
-    os.makedirs(output_dir, exist_ok=True)
-    
-    find_brightness(input_dir, output_dir)
+    #os.makedirs(output_dir, exist_ok=True)
+    #find_brightness(input_dir, output_dir)
+    os.makedirs(args.output_dir, exist_ok=True)
+    find_brightness(input_dir, args.output_dir)

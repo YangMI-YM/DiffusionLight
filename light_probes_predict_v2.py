@@ -1,4 +1,4 @@
-from glob import glob
+from glob import glob, escape
 import os
 import argparse
 import shutil
@@ -23,6 +23,7 @@ from utils import *
 def create_argparser():    
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", type=str, required=True ,help='directory that contain the chromeball image') 
+    parser.add_argument("--output_dir", type=str, required=True ,help='directory for saving refined light masks') 
     return parser
 
 
@@ -596,7 +597,7 @@ def avg_sphere_bright(sphere_src, vis_dir, brightness, val_dist=50, ball_dilate=
     tmp = np.zeros(pts_illu.shape, dtype=np.uint8)
     for i, cnt in enumerate(clustered_contours):
         #print(cnt, bright_areas)
-        if len(cnt) == 4:
+        if len(cnt) == 4 and isinstance(cnt, tuple):
             cv2.rectangle(tmp, (cnt[0], cnt[1]), (cnt[0]+cnt[2], cnt[1]+cnt[3]), 255, -1)
         else:
             cv2.drawContours(tmp, [cnt], -1, 255, -1)
@@ -654,92 +655,65 @@ def avg_sphere_bright(sphere_src, vis_dir, brightness, val_dist=50, ball_dilate=
             cv2.circle(pts_illu, ring_center, 5, (0, 0, 255), 3)
             
         directional_light.append(ring_center)
-    save_start = time.time()
+    #save_start = time.time()
     # transform pixel-based light position to world geometry coordinate (x, y) ONLY
     if len(point_light) > 1:
         # group by deg
         pts_gp = group_by_angle(point_light, light_temperature)
         # access source image 
         img_id = os.path.basename(sphere_src).split('_ev-')[0]
-        #print("src", os.path.dirname(sphere_src))
-        src_dir = os.path.dirname(os.path.dirname(sphere_src)).replace('light', 'cropped')
-        src_img = cv2.imread(glob(os.path.join(src_dir, img_id+'.*'))[0])
     
-        world_light = transform2Dpos2Spherical3D(pts_gp)
+        world_light = transform2Dpos2Spherical3D(pts_gp, dim=1024)
         metadata = PngImagePlugin.PngInfo()
-        metadata.add_text('light', json.dumps(world_light))
-        print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
+        #print(pts_gp, "list of tuple")
+        metadata.add_text('light', json.dumps(pts_gp+[brightness[img_id]]))
         # world light mask
-        light_mask = create_light_mask(world_light, brightness[img_id], (256, 256))
+        light_mask = create_light_mask(pts_gp, brightness[img_id], canva_size=(1024, 1024), radius=240, sigma=80)
         # cvrt to Image format
         Image.fromarray(light_mask).save(os.path.join(vis_dir, img_id+'.png'), pnginfo=metadata)
-        # tile spb & light mask
         
-        tile = hconcat_resize_min([src_img, illu, light_mask]) # pts_illu
-        cv2.imwrite(os.path.join(vis_dir, 'vis', img_id+'_tile.png'), tile)
         
     elif len(point_light) > 0:
         # access source image 
         img_id = os.path.basename(sphere_src).split('_ev-')[0]
-        src_dir = os.path.dirname(os.path.dirname(sphere_src)).replace('light', 'cropped')
-        src_img = cv2.imread(glob(os.path.join(src_dir, img_id+'.*'))[0])
         
-        world_light = transform2Dpos2Spherical3D(point_light)
+        world_light = transform2Dpos2Spherical3D(point_light, dim=1024)
         metadata = PngImagePlugin.PngInfo() #img.info['light']
-        metadata.add_text('light', json.dumps(world_light))
-        print(f"light src pos in world coord ({int(world_light[0][0])}, {int(world_light[0][1])})")
+        metadata.add_text('light', json.dumps(point_light+[brightness[img_id]]))
         # world light mask
-        light_mask = create_light_mask(world_light, brightness[img_id], (256, 256))
+        light_mask = create_light_mask(point_light, brightness[img_id], canva_size=(1024, 1024), radius=240, sigma=80)
         # cvrt to Image format
         Image.fromarray(light_mask).save(os.path.join(vis_dir, img_id+'.png'), pnginfo=metadata)
-        # tile spb & light mask
         
-        tile = hconcat_resize_min([src_img, illu, pts_illu, light_mask]) 
-        cv2.imwrite(os.path.join(vis_dir, 'vis', img_id+'_tile.png'), tile)
     
     else: # TODO remove samples without light spots
-        light_mask = create_inverse_gaussian_light_mask(center=(128, 128), image_size=(256, 256)) # dark center 
+        light_mask = create_inverse_gaussian_light_mask(center=(512, 512), image_size=(1024, 1024)) # dark center 
         tile = hconcat_resize_min([pts_illu, light_mask])
         cv2.imwrite(os.path.join(vis_dir, os.path.basename(sphere_src).split('_ev-')[0]+'_tile.png'), tile)
-    print(f"fw complete: {time.time()-save_start}.")
+
 
 
 if __name__ == "__main__":
 
     args = create_argparser().parse_args()
     search_dir = args.input_dir
-    vis_dir = search_dir.replace('ball', 'light_mask_intensity')
-    #search_dir = '/home/ec2-user/s3data/light_probs/ball_minitestset' # keep depth shallow
-    #vis_dir = '/home/ec2-user/s3data/light_probs/minitestset_output'
+    vis_dir = args.output_dir
+    
     os.makedirs(vis_dir, exist_ok=True)
     os.makedirs(os.path.join(vis_dir, 'vis'), exist_ok=True)
     
-    image_filename_list = glob(search_dir+'/*_ev-50.png')#[5323:]
+    image_filename_list = glob(search_dir+'/*_ev-50.png')
+    # output_filename_list = glob(vis_dir+)
+    # [file_path.replace(search_dir, vis_dir).replace("_ev-50", "") for file_path in image_filename_list]
+    # image_files_filter = set(image_filename_list) - set(output_filename_list)
+    # images_path = 
     images_path = [os.path.join(search_dir, file_path) for file_path in image_filename_list]
     ball_dilate = 10 # used in inpaint step to make a sharper ball edge
     val_dist = 45 # thresholding light mask
     print(len(images_path))
 
-    for item in tqdm(images_path):
-        '''
-        img_name = item.split('/')[-1]
+    with open(os.path.join(vis_dir.replace('light_mask_intensity', 'brightness'), 'brightness.json'), 'r') as brightness_data:
+        brightness = json.load(brightness_data)
 
-        ## DC component from SH coeff
-        print(img_name)
-        try:
-            hdr_evm = Image.open(item.replace('-50', '-00'))
-        except:
-            try:
-                hdr_evm = Image.open(item.replace('-50', '-10'))
-            except:
-                print(f"IO failure on sample {img_name}.")
-                continue
-        hdr_evm = np.asarray(hdr_evm)
-        sh_coeff, sh_hdr = getSH(hdr_evm, l=3) #l_max=3
-        print(f"SH coeff light intensity: {sh_coeff[0][0]}, sh_hdr cutoff {np.max(sh_hdr)} ")
-        '''
-        with open(os.path.join(search_dir.replace('ball', 'brightness'), 'brightness.json'), 'r') as brightness_data:
-            brightness = json.load(brightness_data)
-        
-        #pt_light, dir_light = avg_hemi_sphere_light_src(item, vis_dir, val_dist, ball_dilate, mean_thres=150)
+    for item in tqdm(images_path):
         avg_sphere_bright(item, vis_dir, brightness, val_dist, ball_dilate, mean_thres=150)

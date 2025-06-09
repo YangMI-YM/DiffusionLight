@@ -168,7 +168,7 @@ def transform2Dpos2Spherical3D(pixel_pos, dim=256, light_type='point'):
         #phi = - (pos[1] / (dim / 180) - 90)
         phi = 90 # polar angle is always 90 for a flat circle in xy-plane
 
-        print(f"theta_phi range {np.rad2deg(theta)} \in [0, \pi].")
+        #print(f"theta_phi range {np.rad2deg(theta)} \in [0, \pi].")
 
         phi = np.deg2rad(phi)
         x = radius * np.sin(phi) * np.cos(theta)
@@ -478,8 +478,8 @@ def create_light_mask(gaussian_centers, intensity, canva_size, kernel_size=0, ra
     summed_blur = np.zeros_like(canva, dtype=np.float32)
     for cntr in gaussian_centers:
         # apply multiple Gaussian_blurs and sum the results
-        print(cntr)
-        light_mask = cv2.circle(canva.copy(), (int(cntr[0]), int(cntr[1])), radius, (1,), thickness=-1)
+        #print(cntr)
+        light_mask = cv2.circle(canva.copy(), (int(cntr[0]*4), int(cntr[1]*4)), radius, (1,), thickness=-1)
         light_mask = cv2.GaussianBlur(light_mask, (kernel_size, kernel_size), sigma).astype(np.float32)
         #light_mask = np.clip(light_mask * 255, 0, 255).astype(np.uint8)
         summed_blur += light_mask * 255 * np.mean(intensity)
@@ -544,7 +544,7 @@ def group_by_angle(pts, strength):
             strength_quadrant = np.take(strength, ind)
             #print(f"indexing: {pts_quadrant}, {pts}, {ind}, {strength_quadrant}")
             pt = pts_quadrant[np.argmax(strength_quadrant)]
-            valid_pts.append(pt)
+            valid_pts.append(tuple(pt.tolist()))
         elif ind.size == 1:
             #print(f"indexing: {pts[ind[0]]}")
             valid_pts.append(pts[ind[0]])

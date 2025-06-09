@@ -5,15 +5,15 @@ import argparse
 
 
 def quick_counter(src_dir, des_dir):
-    batches = os.listdir(src_dir)
+    batches = ["batch_8"]#os.listdir(src_dir)
     input_tol = 0
     processed_tol = 0
     for batch_name in batches:
-        #if 'batch_1' not in batch_name:
+        #if 'batch_13' not in batch_name and 'batch_7' not in batch_name:
         #    continue
-        input_cnt = len(glob(os.path.join(src_dir, batch_name)+'/light_mask/*.*'))
+        input_cnt = len(glob(os.path.join(src_dir, batch_name)+'/*.*'))
         #output_cnt = len(glob(os.path.join(des_dir, batch_name)+'/control/*_ev-00.*'))
-        output_cnt = len(glob(os.path.join(des_dir, batch_name)+'/light_mask/*.*'))
+        output_cnt = len(glob(os.path.join(des_dir, batch_name)+'/light_mask_intensity/*.*'))
         input_tol += input_cnt
         processed_tol += output_cnt
         print(f"{batch_name}: Total: {input_cnt} | Processed: {output_cnt} | Remaining: {input_cnt-output_cnt}.")
@@ -41,7 +41,7 @@ def cross_check(src_dir, des_dir):
                     except FileNotFoundError as e:
                         print(e)
         print(f"enfin: {outlier_counter}.")
-
+        
 
 if __name__ in '__main__':
 
@@ -54,7 +54,7 @@ if __name__ in '__main__':
     args = parser.parse_args()
     task = args.task
     img_dim = args.resolution
-    beauty_dir = f'/home/yangmi/s3data-2/beauty-lvm/v2/light/{img_dim}/'
+    beauty_dir = f'/home/yangmi/s3data-3/beauty-lvm/v2/cropped/{img_dim}/'
     output_dir = f'/home/yangmi/volume/light/{img_dim}/'
 
     if task == 'count':
